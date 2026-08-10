@@ -1,0 +1,58 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  security-events: write
+  packages: read
+  actions: read
+  contents: read
+
+jobs:
+
+  SAST:
+    runs-on: ubuntu-latest
+    name: SAST - Static Application Security Testing
+    steps:
+
+      - name: Clonar Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 11
+        uses: actions/setup-java@v4.2.1
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          build-mode: none
+          queries: security-and-quality
+
+      - name: Ejecutar Analisis CodeQL
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"
+
+      - name: Security Gate - SAST
+        run: |
+          echo "Verificando alertas de seguridad CodeQL..."
+          sleep 30
+          alerts=$(gh api \
+            repos/${{ github.repository }}/code-scanning/alerts \
+            --jq '[.[] | select(.state=="open" and (.rule.security_severity_level=="critical" or .rule.security_severity_level=="high" or .rule.security_severity_level=="medium"))] | length')
+
+          echo "Vulnerabilidades encontradas (CRITICAL/HIGH/MEDIUM): $alerts"
+
+          if [ "$alerts" -gt 0 ]; then
+            echo "PIPELINE BLOQUEADO: Se encontraron $alerts vulnerabilidades de severidad MEDIUM o superior en el codigo."
+            exit 1
+          else
+            echo "Sin vulnerabilidades bloqueantes. Continuando..."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN_GH }}
