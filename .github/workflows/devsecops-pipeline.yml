@@ -12,64 +12,52 @@ permissions:
 
 jobs:
 
-  SAST:
+  # ============================================================
+  # SAST - Ya evidenciado (Fase 1 completada)
+  # ============================================================
+  # SAST:
+  #   runs-on: ubuntu-latest
+  #   name: SAST - Static Application Security Testing
+  #   steps:
+  #     - name: Clonar Repositorio
+  #       uses: actions/checkout@v4
+  #     - name: Ejecutar Semgrep SAST
+  #       uses: returntocorp/semgrep-action@v1
+  #       ...
+
+  # ============================================================
+  # FASE 2: SCA - Software Composition Analysis
+  # ============================================================
+  SCA:
     runs-on: ubuntu-latest
-    name: SAST - Static Application Security Testing
+    name: SCA - Software Composition Analysis
     steps:
 
       - name: Clonar Repositorio
         uses: actions/checkout@v4
 
-      - name: Ejecutar Semgrep SAST
-        uses: returntocorp/semgrep-action@v1
+      - name: Configurar JDK 11
+        uses: actions/setup-java@v4.2.1
         with:
-          config: >
-            p/java
-            p/owasp-top-ten
-            p/security-audit
-        env:
-          SEMGREP_RULES: "p/java p/owasp-top-ten p/security-audit"
+          java-version: '11'
+          distribution: 'temurin'
 
-      - name: Security Gate - SAST (Semgrep CLI)
-        run: |
-          pip install semgrep
-          echo "Ejecutando analisis SAST con Semgrep..."
-          echo ""
-          
-          # Ejecutar Semgrep y capturar resultados
-          semgrep scan --config p/java --config p/owasp-top-ten --config p/security-audit \
-            --severity ERROR --severity WARNING \
-            --json --output semgrep-results.json \
-            src/ || true
-          
-          # Contar vulnerabilidades de severidad MEDIUM+ (WARNING y ERROR en Semgrep)
-          total=$(cat semgrep-results.json | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          results = data.get('results', [])
-          count = len([r for r in results if r.get('extra',{}).get('severity','') in ['ERROR','WARNING']])
-          print(count)
-          ")
-          
-          echo "============================================"
-          echo "Vulnerabilidades encontradas (MEDIUM/HIGH/CRITICAL): $total"
-          echo "============================================"
-          
-          if [ "$total" -gt 0 ]; then
-            echo ""
-            echo "PIPELINE BLOQUEADO: Se encontraron $total vulnerabilidades de severidad MEDIUM o superior en el codigo."
-            echo ""
-            # Mostrar detalle de vulnerabilidades
-            cat semgrep-results.json | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          results = data.get('results', [])
-          for r in results:
-              sev = r.get('extra',{}).get('severity','')
-              if sev in ['ERROR','WARNING']:
-                  print(f\"  - [{sev}] {r.get('check_id','')} en {r.get('path','')}:{r.get('start',{}).get('line','')}\")
-          "
-            exit 1
-          else
-            echo "Sin vulnerabilidades bloqueantes. Continuando..."
-          fi
+      - name: Compilar Proyecto
+        run: mvn -q -DskipTests package
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@1.1.0
+        with:
+          project: 'pet-clinic'
+          path: '.'
+          format: 'HTML'
+          args: >
+            --disableCentral
+            --failOnCVSS 4
+
+      - name: Subir Reporte Dependency Check
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: ${{github.workspace}}/reports
