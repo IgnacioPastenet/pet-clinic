@@ -40,7 +40,7 @@ jobs:
 
       - name: Compilar Proyecto
         run: |
-          mvn -q -DskipTests -Dspring-javaformat.skip=true package
+          mvn -q -DskipTests -Dspring-javaformat.skip=true -Dmaven.gitcommitid.skip=true package
           cp target/spring-petclinic-*.jar spring-petclinic-2.6.0.jar
 
       - name: Construir Imagen Docker
@@ -71,7 +71,7 @@ jobs:
 
       - name: Compilar y Construir Imagen
         run: |
-          mvn -q -DskipTests -Dspring-javaformat.skip=true package
+          mvn -q -DskipTests -Dspring-javaformat.skip=true -Dmaven.gitcommitid.skip=true package
           cp target/spring-petclinic-*.jar spring-petclinic-2.6.0.jar
           docker build -t pet-clinic:latest .
 
