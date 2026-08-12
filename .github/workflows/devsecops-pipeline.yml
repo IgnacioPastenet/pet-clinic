@@ -15,15 +15,6 @@ jobs:
   # ============================================================
   # SAST - Ya evidenciado (Fase 1 completada)
   # ============================================================
-  # SAST:
-  #   runs-on: ubuntu-latest
-  #   name: SAST - Static Application Security Testing
-  #   steps:
-  #     - name: Clonar Repositorio
-  #       uses: actions/checkout@v4
-  #     - name: Ejecutar Semgrep SAST
-  #       uses: returntocorp/semgrep-action@v1
-  #       ...
 
   # ============================================================
   # FASE 2: SCA - Software Composition Analysis
@@ -42,22 +33,18 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Compilar Proyecto
-        run: mvn -q -DskipTests -Dspring-javaformat.skip=true package
-
-      - name: OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@1.1.0
-        with:
-          project: 'pet-clinic'
-          path: '.'
-          format: 'HTML'
-          args: >
-            --disableCentral
-            --failOnCVSS 4
+      - name: Ejecutar OWASP Dependency Check
+        run: |
+          mvn org.owasp:dependency-check-maven:8.4.3:check \
+            -Dformat=HTML \
+            -DfailBuildOnCVSS=4 \
+            -Dspring-javaformat.skip=true \
+            -DdisableCentral=true \
+            -Denforcer.skip=true
 
       - name: Subir Reporte Dependency Check
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dependency-check-report
-          path: ${{github.workspace}}/reports
+          path: target/dependency-check-report.html
