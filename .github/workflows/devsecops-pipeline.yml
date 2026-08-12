@@ -27,24 +27,13 @@ jobs:
       - name: Clonar Repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar JDK 11
-        uses: actions/setup-java@v4.2.1
+      - name: Ejecutar Trivy SCA - Analisis de Dependencias
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          java-version: '11'
-          distribution: 'temurin'
-
-      - name: Ejecutar OWASP Dependency Check
-        run: |
-          mvn org.owasp:dependency-check-maven:8.4.3:check \
-            -Dformat=HTML \
-            -DfailBuildOnCVSS=4 \
-            -Dspring-javaformat.skip=true \
-            -DdisableCentral=true \
-            -Denforcer.skip=true
-
-      - name: Subir Reporte Dependency Check
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-check-report
-          path: target/dependency-check-report.html
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'library'
+          severity: 'MEDIUM,HIGH,CRITICAL'
